@@ -210,10 +210,14 @@ struct ItemRow: View {
     let selected: Bool
     let onPreview: () -> Void
 
+    private var previews: LinkPreviews { .shared }
+    private var videoID: String? { item.kind == .text ? YouTube.videoID(in: item.text) : nil }
+
     var body: some View {
         HStack(spacing: 12) {
             thumbnail
                 .frame(width: 38, height: 38)
+                .task(id: videoID) { if let videoID { previews.load(videoID) } }
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(size: 13))
@@ -269,7 +273,22 @@ struct ItemRow: View {
                 symbolTile("doc")
             }
         case .text:
-            symbolTile(isLink ? "link" : "text.alignleft")
+            if let videoID, let image = previews.thumbnails[videoID] {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 38, height: 38)
+                    .clipShape(.rect(cornerRadius: 10, style: .continuous))
+                    .overlay {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white)
+                            .shadow(radius: 2)
+                    }
+                    .transition(.opacity)
+            } else {
+                symbolTile(isLink ? "link" : "text.alignleft")
+            }
         }
     }
 
@@ -290,6 +309,7 @@ struct ItemRow: View {
     }
 
     private var title: String {
+        if let videoID, let info = previews.info[videoID] { return info.title }
         switch item.kind {
         case .text:
             let text = String((item.text ?? "").prefix(300))
@@ -304,6 +324,9 @@ struct ItemRow: View {
     }
 
     private var meta: String? {
+        if let videoID, let info = previews.info[videoID] {
+            return ["YouTube", info.channel].compactMap(\.self).joined(separator: " · ")
+        }
         switch item.kind {
         case .text:
             let count = item.text?.count ?? 0
@@ -594,14 +617,11 @@ struct PreviewView: View {
     private var content: some View {
         switch item.kind {
         case .text:
-            ScrollView {
-                Text(item.text ?? "")
-                    .font(.system(size: 13))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
+            if let id = YouTube.videoID(in: item.text) {
+                VideoPreview(id: id, link: item.text ?? "")
+            } else {
+                textPreview
             }
-            .scrollIndicators(.automatic)
         case .image:
             if let url = store.imageURL(item), let image = NSImage(contentsOf: url) {
                 Image(nsImage: image)
@@ -628,5 +648,61 @@ struct PreviewView: View {
                 .padding(14)
             }
         }
+    }
+
+    private var textPreview: some View {
+        ScrollView {
+            Text(item.text ?? "")
+                .font(.system(size: 13))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+        }
+        .scrollIndicators(.automatic)
+    }
+}
+
+/// Large thumbnail, title and link for a copied YouTube link.
+struct VideoPreview: View {
+    let id: String
+    let link: String
+
+    private var previews: LinkPreviews { .shared }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Not every video has the HD thumbnail; fall back to the small one.
+            AsyncImage(url: YouTube.thumbnailURL(id, large: true)) { phase in
+                if let image = phase.image {
+                    image.resizable()
+                } else if let small = previews.thumbnails[id] {
+                    Image(nsImage: small).resizable()
+                } else {
+                    Rectangle().fill(.primary.opacity(0.06))
+                }
+            }
+            .aspectRatio(16 / 9, contentMode: .fit)
+            .clipShape(.rect(cornerRadius: 12, style: .continuous))
+
+            if let info = previews.info[id] {
+                Text(info.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(3)
+                if let channel = info.channel {
+                    Text(channel)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Text(link)
+                .font(.system(size: 11))
+                .foregroundStyle(.tertiary)
+                .lineLimit(2)
+                .textSelection(.enabled)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .task { previews.load(id) }
     }
 }

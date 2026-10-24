@@ -15,8 +15,9 @@
 - Press <kbd>⌥</kbd> <kbd>V</kbd> anywhere to open your clipboard history (shortcut is changeable)
 - Opens at your mouse pointer, text cursor, or screen center
 - Text, links, images, and files
+- YouTube links show the video's thumbnail and title
 - Search, use the arrow keys, and press <kbd>↩</kbd> to paste straight into the app you're using
-- Preview long text and full images
+- Preview long text, full images, and videos
 - Skips passwords copied from password managers
 - Adjustable history size (30 by default) and start at login
 - Native Liquid Glass that follows your system appearance
@@ -37,6 +38,7 @@ Requires macOS 26 Tahoe or later. On first launch, Kairos asks for Accessibility
 | <kbd>⌥</kbd> <kbd>V</kbd> | Open or close Kairos |
 | <kbd>↑</kbd> <kbd>↓</kbd> | Move through items |
 | <kbd>↩</kbd> | Paste the selected item |
+| <kbd>→</kbd> <kbd>←</kbd> | Open or close the preview |
 | <kbd>⌘</kbd> <kbd>⌫</kbd> | Delete the selected item |
 | <kbd>⌘</kbd> <kbd>,</kbd> | Settings |
 | <kbd>esc</kbd> | Close |

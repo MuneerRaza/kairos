@@ -23,7 +23,13 @@ final class PanelModel {
     func filter(_ items: [ClipItem]) -> [ClipItem] {
         let q = query.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return items }
-        return items.filter { $0.searchText.localizedCaseInsensitiveContains(q) }
+        // Also match a YouTube link by its video title.
+        let titles = LinkPreviews.shared.info
+        return items.filter { item in
+            item.searchText.localizedCaseInsensitiveContains(q)
+                || (YouTube.videoID(in: item.text).flatMap { titles[$0]?.title }?
+                    .localizedCaseInsensitiveContains(q) ?? false)
+        }
     }
 }
 
@@ -269,6 +275,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         case kVK_Return where model.previewing != nil, kVK_ANSI_KeypadEnter where model.previewing != nil:
             if let item = store.items.first(where: { $0.id == model.previewing }) { paste(item) }
             return true
+        case kVK_LeftArrow where model.previewing != nil:
+            closePreview()
+            return true
         case _ where model.previewing != nil:
             return false
         case _ where model.showingSetup:
@@ -287,6 +296,10 @@ final class PanelController: NSObject, NSWindowDelegate {
         case kVK_Return, kVK_ANSI_KeypadEnter:
             if let item = selectedItem { paste(item) }
             return true
+        case kVK_RightArrow where caretAtEndOfSearch:
+            guard let item = selectedItem else { return false }
+            showPreview(item)
+            return true
         case kVK_Delete where command:
             deleteSelected()
             return true
@@ -297,6 +310,14 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private var selectedItem: ClipItem? {
         store.items.first { $0.id == model.selection }
+    }
+
+    /// → still moves the cursor inside the search text; it opens the preview
+    /// only once the cursor can't go further right.
+    private var caretAtEndOfSearch: Bool {
+        guard let editor = panel.firstResponder as? NSTextView else { return true }
+        let range = editor.selectedRange()
+        return range.length == 0 && range.location == (editor.string as NSString).length
     }
 
     private func moveSelection(_ delta: Int) {
